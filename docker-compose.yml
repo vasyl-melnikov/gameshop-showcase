@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./frontend:/app  # Ensure you're specifying the correct path
+      - /app/node_modules  # Avoid overwriting node_modules in the container
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+    depends_on:
+      - mysql
+    volumes:
+      - ./backend:/app  # Mount the backend code
+      - ./backend/logs:/app/logs  # Ensure backend logs are saved in this directory
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+
+  mysql:
+    image: mysql:8.0
+    restart: always
+    ports:
+      - '3306:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USER}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:latest
+    command: [ "redis-server", "/etc/redis/redis.conf" ]
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/etc/redis/redis.conf
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.10.2
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml  # Ensure it is recognized as a file and read-only
+      - ./backend/logs:/usr/share/filebeat/logs  # Mount backend logs directory
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    environment:
+      - ELASTICSEARCH_HOSTS=https://es01:9200
+
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "127.0.0.1:4566:4566"            # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+    environment:
+      # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+      - DEBUG=${DEBUG:-0}
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+volumes:
+  mysql_data:
+  redis_data:

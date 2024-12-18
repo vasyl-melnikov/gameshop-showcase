@@ -1,0 +1,17 @@
+# Stage 1: Build the React frontend
+FROM --platform=linux/amd64 node:16
+
+# Set the working directory
+WORKDIR /app
+
+# Install a lightweight server to serve the static files
+RUN npm install -g serve
+
+# Copy the rest of the application code
+COPY build build
+
+# Expose the production server port
+EXPOSE 3000
+
+# Command to run the static server in production mode
+CMD ["serve", "-s", "build", "-l", "3000"]
